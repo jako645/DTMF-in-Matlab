@@ -15,7 +15,7 @@ clear all
 %   - 7.m4a
 %   - noise.m4a
 [audio,fs] = audioread('../TestAudioFiles/7.m4a');
-audioTreshold = 40;
+audioThreshold = 40;
 
 dt = 1/fs;
 s = length(audio);
@@ -42,15 +42,9 @@ xlabel('Frequency [Hz]')
 ylabel('DFT Magnitude [~]')
 title('DFT with second-order Goertzel algorithm')
 
-%% Check treshold
-freqAnswers = [];
-for i = 1:7
-    if abs(dftAudio(i)) >= audioTreshold
-        freqAnswers(i) = 1;
-    else
-        freqAnswers(i) = 0;
-    end
-end
+%% Check threshold
+freqAnswers = abs(dftAudio') >= audioThreshold;
+freqAnswers = double(freqAnswers);
 
 %% Get output
 freqPossibleAnswers = [
@@ -66,8 +60,11 @@ freqPossibleAnswers = [
     [0   0   1   0   0    0    1];    % 9
     [0   0   0   1   1    0    0];    % *
     [0   0   0   1   0    1    0];    % 0
-    [0   0   0   1   0    0    1]];    % #
+    [0   0   0   1   0    0    1]];   % #
 
+noFreqAnswer = [0   0   0   0   0    0    0];
+
+% freqAnswers has two '1' - button was pressed
 if freqAnswers == freqPossibleAnswers(1, 1:end)
     pressedButton = '1';
 elseif freqAnswers == freqPossibleAnswers(2, 1:end)
@@ -92,9 +89,15 @@ elseif freqAnswers == freqPossibleAnswers(11, 1:end)
     pressedButton = '0';
 elseif freqAnswers == freqPossibleAnswers(12, 1:end)
     pressedButton = '#';
+% freqAnswers has no '1' - no button was pressed
+elseif freqAnswers == noFreqAnswer(1:end)
+    pressedButton = 'n'; % none
+% freqAnswers has more than two '1' - error
 else
-    error('Error occured when decoding frequencies.')
+    warning('Error occured when decoding frequencies. Recalibrate threshold level.')
 end
 
 %% Print output
-fprintf('\nButton %c was pressed.\n\n', pressedButton)
+if pressedButton ~= "n"
+    fprintf("\nButton '%c' was pressed.\n\n", pressedButton)
+end
