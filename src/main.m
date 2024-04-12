@@ -8,21 +8,29 @@ clear all
 % Project name:     DTMF
 % Date:             7-04-2024
 
-%% Read audio file
-% Possible audio files:
-%   - 3.m4a
-%   - 5.m4a
-%   - 7.m4a
-%   - noise.m4a
-[audio,fs] = audioread('../TestAudioFiles/7.m4a');
-audioThreshold = 40;
+%% Script parameters
+recDuration = 2;        % for recording object
+fs = 16000;
+recNBits = 8;
+recNChannels = 1;
+
+audioThreshold = 40;    % for signal processing
+
+%% Record audio
+recObj = audiorecorder(fs, recNBits, recNChannels);
+fprintf("Begin speaking.\n")
+recordblocking(recObj,recDuration);
+fprintf("End of recording.\n")
+
+%% Set signal parameters
+audio = getaudiodata(recObj);
 
 dt = 1/fs;
-s = length(audio);
-tmax = s*dt;
-timeVector = 0:dt:tmax-dt;
+s = recDuration/dt;
+timeVector = 0:dt:recDuration-dt;
 freqVector = (0:s-1)/s*fs;
 
+% plot recorded signal in time domain
 figure
 plot(timeVector, audio)
 xlabel('Time [s]')
@@ -33,17 +41,26 @@ title('Audio file in the time domain')
 dtmfFrequencies = [697 770 852 941 1209 1336 1477];
 freqIndices = round(dtmfFrequencies/fs*s) + 1;   
 dftAudio = goertzel(audio, freqIndices);
+dftAudio = abs(dftAudio');
 
+% plot dft of recorded signal 
 figure
-stem(dtmfFrequencies, abs(dftAudio))
+stem(dtmfFrequencies, dftAudio)
 ax = gca;
 ax.XTick = dtmfFrequencies;
 xlabel('Frequency [Hz]')
 ylabel('DFT Magnitude [~]')
 title('DFT with second-order Goertzel algorithm')
 
+%% Get two frequencies with the greatest magnitude
+[~, greatestLowFreqPosition] = max(dftAudio(1:4));
+[~, greatestHighFreqPosition] = max(dftAudio(5:7));
+greatestHighFreqPosition = greatestHighFreqPosition + 4;
+
 %% Check threshold
-freqAnswers = abs(dftAudio') >= audioThreshold;
+freqAnswers = zeros(1, 7);
+freqAnswers(greatestLowFreqPosition) = dftAudio(greatestLowFreqPosition) >= audioThreshold;
+freqAnswers(greatestHighFreqPosition) = dftAudio(greatestHighFreqPosition) >= audioThreshold;
 freqAnswers = double(freqAnswers);
 
 %% Get output
@@ -90,10 +107,11 @@ elseif freqAnswers == freqPossibleAnswers(11, 1:end)
 elseif freqAnswers == freqPossibleAnswers(12, 1:end)
     pressedButton = '#';
 % freqAnswers has no '1' - no button was pressed
-elseif freqAnswers == noFreqAnswer(1:end)
+elseif sum(freqAnswers(:) == 1) == 0
     pressedButton = 'n'; % none
-% freqAnswers has more than two '1' - error
+% freqAnswers has one '1' - warning
 else
+    pressedButton = 'n'; % none
     warning('Error occured when decoding frequencies. Recalibrate threshold level.')
 end
 
